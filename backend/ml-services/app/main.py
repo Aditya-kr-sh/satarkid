@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.endpoints import health
 from app.api.endpoints.face import router as face_router
 from app.api.endpoints.indian_documents import router as indian_documents_router
-from app.database.postgres import get_db_pool
+from app.database.postgres import get_db_pool, get_pool
 from app.services import face_extractor, local_ocr, ai_image_detector
 from app.services import liveness_detector
 import app.database.postgres as db_client
@@ -60,12 +60,12 @@ async def shutdown():
 async def ready():
     """OCR availability is informative; face, liveness and storage readiness gate uploads."""
     database_ready = False
-    if db_client.db_pool:
-        try:
-            await db_client.db_pool.fetchval("SELECT 1 FROM face_embeddings LIMIT 1")
-            database_ready = True
-        except Exception:
-            pass
+    try:
+        pool = await get_pool()
+        await pool.fetchval("SELECT 1 FROM face_embeddings LIMIT 1")
+        database_ready = True
+    except Exception as exc:
+        logger.warning("PostgreSQL readiness check failed: %s", exc)
     from pathlib import Path
     import os
     storage_ready = (bool(settings.LOCAL_UPLOAD_DIR) and Path(settings.LOCAL_UPLOAD_DIR).is_dir()
@@ -77,6 +77,7 @@ async def ready():
     return JSONResponse(status_code=200 if ready_now else 503, content={
         **checks, "ocr_provider": "paddleocr", "ocr_ready": local_ocr.is_ready(),
         "ai_detector_ready": ai_image_detector.is_ready(),
+        "ai_detector": ai_image_detector.model_status(),
         "ocr_enabled": settings.OCR_ENABLED, "status": "ready" if ready_now else "not_ready",
     })
 

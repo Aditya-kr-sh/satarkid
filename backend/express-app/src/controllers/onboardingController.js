@@ -29,10 +29,14 @@ async function issueLivenessChallenge(req, res) {
 async function processSelfie(req, res) {
   if (!validId(req.params.sessionId)) return res.status(400).json({ error: "Invalid submission ID." });
   const selfie = req.files?.selfie_front?.[0];
+  const portrait = req.files?.portrait_image?.[0];
   const video = req.files?.liveness_video?.[0];
-  if (!selfie || !video) return res.status(400).json({ error: "A portrait and liveness video are required." });
+  if (!selfie || !portrait || !video) {
+    return res.status(400).json({ error: "An uploaded portrait, live camera portrait, and liveness video are required." });
+  }
   try { return res.json({ success: true, ...await service.processSelfie(req.params.sessionId, {
-    frontBuffer: selfie.buffer, livenessVideoBuffer: video.buffer, videoType: video.mimetype,
+    frontBuffer: selfie.buffer, portraitBuffer: portrait.buffer,
+    livenessVideoBuffer: video.buffer, videoType: video.mimetype,
   }) }); }
   catch (error) { return failure(res, error); }
 }

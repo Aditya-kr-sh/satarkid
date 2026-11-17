@@ -1,13 +1,13 @@
 # SatarkID
 
-Local Aadhaar/PAN analysis for a B.Tech digital-arrest prevention project. Upload a document, review its core fields, then complete a live camera check to open the analysis directly.
+Local Aadhaar/PAN analysis for a B.Tech digital-arrest prevention project. Upload a document, review its core fields, upload the portrait to score, then complete a live camera check to open the analysis directly.
 
 - PaddleOCR extracts printed English names, identifiers, birth dates/years and gender.
 - InsightFace extracts document faces independently of OCR; portrait similarity uses a **50% threshold**. A one-time random head-turn challenge checks for centered→turn→center movement in a short live camera clip before accepting the captured portrait.
 - Aadhaar checksum/PAN format checks and image heuristics provide review findings.
-- Community Forensics scores AI-generation signals for each document page and portrait, locally through ONNX Runtime. Document pages use up to five overlapping views and report the highest signal; this improves page coverage but can increase false positives. Scores are experimental, not calibrated probabilities, and not proof of authenticity or validated ID-document detection. An unavailable detector returns an unknown score.
+- Community Forensics scores AI-generation signals for each document page and the separately uploaded portrait, locally through ONNX Runtime. Document pages use up to five overlapping views and report the highest signal; this improves page coverage but can increase false positives. Scores are experimental, not calibrated probabilities, and not proof of authenticity or validated ID-document detection. An unavailable detector returns an unknown score.
 
-Government issuance is not verified. The active head-turn check is a prototype movement signal, not certified anti-spoof protection or proof of identity; it can be vulnerable to replay and presentation attacks. The short liveness video is analyzed locally and is not saved; only the captured portrait is retained. This prototype does not independently detect scam calls. It runs on loopback without production authentication. Private documents, models, credentials and uploads stay outside Git.
+Government issuance is not verified. The active head-turn check is a prototype movement signal, not certified anti-spoof protection or proof of identity; it can be vulnerable to replay and presentation attacks. The short liveness video is analyzed locally and is not saved. The uploaded portrait is retained to display its AI-image result; a separate captured camera portrait is retained for face comparison. This prototype does not independently detect scam calls. It runs on loopback without production authentication. Private documents, models, credentials and uploads stay outside Git.
 
 ## Run
 
@@ -38,7 +38,7 @@ Configuration is in the ignored `.env`: `DATABASE_URL`, `DATABASE_CA_FILE`, `LOC
 
 Samples live in the workspace's `data/india-samples` folder. Choose `aadhaar-photo-*.jpg` or `aadhaar-pdf-*.pdf` for Aadhaar and `pan-synthetic.png` for PAN. The synthetic PAN has no face. The sample runner checks document and review steps by default; full portrait submission requires local WebM/MP4/MOV clips for both head-turn directions.
 
-For an AI-generation test, use **`ai-generated-portrait.png` as the captured portrait** with an Aadhaar sample and the two local liveness clips. It depicts a different person, so a face mismatch is expected. The four other `ai-generated-*.png` files test objects/scenes rather than identity documents; unreadable identity fields can remain blank. Sources and hashes are in `scripts/ai_samples.json`.
+For an AI-generation test, use **`ai-generated-portrait.png` as the uploaded portrait** with an Aadhaar sample and the two local liveness clips. The sample runner also uses it as the simulated camera portrait, so a face mismatch is expected. The four other `ai-generated-*.png` files test objects/scenes rather than identity documents; unreadable identity fields can remain blank. Sources and hashes are in `scripts/ai_samples.json`.
 
 ```bash
 # Restore the five public generated fixtures if needed:

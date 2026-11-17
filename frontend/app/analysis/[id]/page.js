@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { API_BASE_URL } from "@/lib/api";
+import { aiScorePercent, aiScoreWidth } from "@/lib/aiImageScore.mjs";
 import Logo from "../../components/ui/Logo";
 import ThemeToggle from "../../components/ThemeToggle";
 
@@ -32,7 +34,8 @@ function FieldList({ fields = {} }) {
 }
 function EvidenceImage({ title, url }) {
   return <Card title={title}>{url ? <a href={url} target="_blank" rel="noreferrer">
-    <img src={url} alt={title} className="max-h-96 w-full rounded-lg bg-slate-50 object-contain" />
+    <Image src={url} alt={title} width={640} height={480} unoptimized
+      className="max-h-96 w-full rounded-lg bg-slate-50 object-contain" />
     <span className="mt-3 block text-xs text-blue-700">Open image</span>
   </a> : <p className="text-sm text-slate-500">No image available.</p>}</Card>;
 }
@@ -55,7 +58,7 @@ function FaceSummary({ data }) {
 }
 function AiSection({ analysis }) {
   const groups = [["Document", analysis?.document], ["Portrait", analysis?.portrait]];
-  const source = groups.find(([, result]) => result?.model_url)?.[1];
+  const source = groups.find(([, result]) => result?.model_url || result?.model_status || result?.model_version)?.[1];
   return <div className="space-y-5">
     <div className="rounded-xl border border-violet-200 bg-violet-50 p-5 text-sm leading-relaxed text-violet-950">
       <strong>Experimental AI-generation signal.</strong>{" "}Scores describe the model&apos;s response, not a calibrated probability that an image was AI-generated. Aadhaar/PAN scans are outside its validated use. A low score does not prove authenticity. These results add no fraud-risk points.
@@ -63,22 +66,58 @@ function AiSection({ analysis }) {
     <div className="grid gap-5 md:grid-cols-2">{groups.map(([label, result]) =>
       <Card key={label} title={`${label} AI-image analysis`}>
         {!result?.images?.length ? <p className="text-sm text-slate-500">Not analyzed for this submission. Submit a new case to run this check.</p> :
-          result.images.map((item, index) => <div key={index} className="mb-5 last:mb-0">
-            <p className="text-sm text-slate-500">{label === "Document" ? `Document page ${index + 1}` : "Uploaded portrait"}</p>
-            {item.status === "complete" && item.ai_score != null ? <>
-              <p className="mt-2 text-4xl font-semibold text-violet-700">{item.ai_score < 0.01 ? "<0.01" : item.ai_score > 99.99 ? ">99.99" : Number(item.ai_score).toFixed(2)}<span className="text-lg text-slate-400"> / 100</span></p>
-              <p className="mt-1 text-xs text-slate-600">{item.view_scores?.length ? "Highest AI-generation signal across up to five document views" : "AI-generation model score"}</p>
-              {item.view_scores?.length > 0 && <p className="mt-1 text-xs leading-relaxed text-slate-500">
-                View scores: {item.view_scores.map(view => `${view.view.replaceAll("_", " ")} ${Number(view.ai_score).toFixed(2)}`).join(" · ")}
-              </p>}
-              <div className="mt-3 h-2 rounded-full bg-violet-100"><div className="h-2 rounded-full bg-violet-500" style={{ width: `${Math.max(0, Math.min(100, item.ai_score))}%` }} /></div>
-            </> : <p className="mt-2 text-sm text-amber-800">Detector unavailable. No score was assigned; other analysis continues.</p>}
-          </div>)}
+          <>
+            {label === "Portrait" && result.image_url ? <a href={result.image_url} target="_blank" rel="noreferrer">
+              <Image src={result.image_url} alt="Portrait analyzed for AI-generation signals" width={640} height={480} unoptimized
+                className="mb-4 max-h-80 w-full rounded-lg bg-slate-50 object-contain" />
+              <span className="mb-4 block text-xs text-blue-700">Open analyzed photo</span>
+            </a> : label === "Portrait" && <p className="mb-4 text-sm text-slate-500">
+              The source photo was not saved for this older result.
+            </p>}
+            {result.model_status && result.model_status.state !== "ready" && <p role="status" className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+              AI detector {result.model_status.state}: {result.model_status.message || "No score is available; other analysis continues."}
+            </p>}
+            {result.images.map((item, index) => {
+              const score = aiScorePercent(item.ai_score);
+              const scoreIsValid = score !== null;
+              const [uncertainLow, uncertainHigh] = result.uncertain_score_range || [45, 55];
+              const decision = item.decision || (score >= uncertainLow && score <= uncertainHigh
+                ? "uncertain" : score > uncertainHigh ? "higher_ai_signal" : "lower_ai_signal");
+              const decisionText = decision === "uncertain"
+                ? "Uncertain: near the model's 50-point decision threshold"
+                : decision === "higher_ai_signal" ? "Higher model signal" : "Lower model signal; this does not prove authenticity";
+              return <div key={index} className="mb-5 last:mb-0">
+                <p className="text-sm text-slate-500">{label === "Document" ? `Document page ${index + 1}` : "Uploaded portrait"}</p>
+                {item.status === "complete" && scoreIsValid ? <>
+                  <p className="mt-2 text-4xl font-semibold text-violet-700">{score < 0.01 ? "<0.01" : score > 99.99 ? ">99.99" : score.toFixed(2)}<span className="text-lg text-slate-400"> / 100</span></p>
+                  <p className="mt-1 text-xs text-slate-600">{item.view_scores?.length ? "Highest AI-generation signal across up to five document views" : "AI-generation model score"}</p>
+                  <p className="mt-1 text-xs text-slate-600">{decisionText}</p>
+                  {item.raw_logit != null && Number.isFinite(Number(item.raw_logit)) && <p className="mt-1 text-xs text-slate-500">Raw model logit: {Number(item.raw_logit).toFixed(4)}</p>}
+                  {item.inference_ms != null && Number.isFinite(Number(item.inference_ms)) && <p className="mt-1 text-xs text-slate-500">Preprocessing + inference: {Number(item.inference_ms).toFixed(0)} ms</p>}
+                  {item.view_scores?.length > 0 && <p className="mt-1 text-xs leading-relaxed text-slate-500">
+                    View scores: {item.view_scores.map(view => `${view.view.replaceAll("_", " ")} ${Number(view.ai_score).toFixed(2)}`).join(" · ")}
+                  </p>}
+                  <div className="mt-3 h-2 rounded-full bg-slate-200" role="progressbar" aria-label="AI-generation signal score"
+                    aria-valuemin={0} aria-valuemax={100} aria-valuenow={score}>
+                    <div className="h-2 rounded-full bg-violet-500" style={{ width: aiScoreWidth(score) }} />
+                  </div>
+                </> : <p role="status" className="mt-2 text-sm text-amber-800">
+                  {item.error_message || (item.status === "complete"
+                    ? "The detector returned an invalid score; no result was assigned."
+                    : "Detector unavailable. No score was assigned; other analysis continues.")}
+                  {item.error_code && <span className="ml-1 text-xs text-amber-700">({item.error_code})</span>}
+                </p>}
+              </div>;
+            })}
+          </>}
       </Card>)}</div>
     <Card title="Model and interpretation">
       <p className="text-sm text-slate-600">Community Forensics · local ONNX FP32. Each document page and the separately uploaded portrait are scored independently.</p>
+      <p className="mt-2 text-sm text-slate-600">Model version: {source?.model_version || source?.revision || "not recorded"}</p>
+      {source?.model_status?.message && source.model_status.state !== "ready" && !source.images?.length &&
+        <p role="status" className="mt-2 text-sm text-amber-800">{source.model_status.message}</p>}
       <p className="mt-2 text-sm text-slate-600">For document pages, the detector examines the center and four overlapping corner views, and displays the highest signal. This improves page coverage but can increase false positives. Scans, text layouts, compression and cropping can produce misleading scores. It does not locate edits or verify the document issuer.</p>
-      {source && <a className="mt-3 inline-block text-sm text-blue-700 underline" href={source.model_url} target="_blank" rel="noreferrer">Pinned model and limitations</a>}
+      {source?.model_url && <a className="mt-3 inline-block text-sm text-blue-700 underline" href={source.model_url} target="_blank" rel="noreferrer">Pinned model and limitations</a>}
     </Card>
   </div>;
 }
@@ -135,7 +174,7 @@ function SubmissionAnalysis({ id }) {
             {data.documentType?.toLowerCase() === "aadhaar" && <span>Checksum: {data.documentChecks?.checksum_valid == null ? "Not checked" : data.documentChecks.checksum_valid ? "Passed" : "Needs review"}</span>}
             <span>Government issuance: Not verified</span></div></Card>
         </div>}
-        {tab === "face" && <div className="grid gap-5 md:grid-cols-2"><EvidenceImage title="Extracted document face" url={data.documentFaceUrl} /><EvidenceImage title="Uploaded portrait" url={data.portraitUrl} />        <Card title="Similarity analysis" className="md:col-span-2"><FaceSummary data={data} /><p className="mt-4 text-sm text-slate-500">Face extraction and comparison run independently of OCR. Liveness status: {data.livenessStatus?.replaceAll("_", " ") || "not recorded"}.</p></Card></div>}
+        {tab === "face" && <div className="grid gap-5 md:grid-cols-2"><EvidenceImage title="Extracted document face" url={data.documentFaceUrl} /><EvidenceImage title="Live camera portrait" url={data.portraitUrl} />        <Card title="Similarity analysis" className="md:col-span-2"><FaceSummary data={data} /><p className="mt-4 text-sm text-slate-500">Face extraction and comparison run independently of OCR. Liveness status: {data.livenessStatus?.replaceAll("_", " ") || "not recorded"}.</p></Card></div>}
         {tab === "ai" && <AiSection analysis={data.aiImageAnalysis} />}
         {tab === "forgery" && <div className="space-y-5"><Card title="Experimental image heuristics"><p className="text-4xl font-semibold">{data.forgery?.forgery_score == null ? "Unavailable" : Number(data.forgery.forgery_score).toFixed(2)}<span className="text-lg text-slate-400"> / 100</span></p><p className="mt-3 text-sm text-slate-600">A composite of image checks on the normalized document page. It is not a probability of forgery, an AI-generation detector, or proof of government issuance.</p></Card>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{IMAGE_CHECKS.map(([key, title, description]) => <Card key={key} title={title}>

@@ -48,7 +48,7 @@ async function recordClip(stream, onCountdown) {
   return clip;
 }
 
-export default function ActiveLivenessStep({ sessionId, onVerificationComplete }) {
+export default function ActiveLivenessStep({ sessionId, portraitFile, onBack, onVerificationComplete }) {
   const videoRef = useRef(null);
   const streamRef = useRef(null);
   const [busy, setBusy] = useState(false);
@@ -62,6 +62,10 @@ export default function ActiveLivenessStep({ sessionId, onVerificationComplete }
 
   async function startLivenessCheck() {
     if (!sessionId || busy) return;
+    if (!portraitFile) {
+      setError("Upload a portrait photo before starting the live check.");
+      return;
+    }
     setBusy(true);
     setError("");
     setChallenge("");
@@ -85,6 +89,8 @@ export default function ActiveLivenessStep({ sessionId, onVerificationComplete }
       const portrait = await capturePortrait(video);
       const body = new FormData();
       body.append("selfie_front", portrait, "portrait.jpg");
+      const extension = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" }[portraitFile.type];
+      body.append("portrait_image", portraitFile, `analysis-portrait.${extension}`);
       body.append("liveness_video", clip, clip.type === "video/mp4" ? "liveness.mp4" : "liveness.webm");
       await requestJson(`${API_BASE_URL}/onboarding/session/${sessionId}/selfie`, { method: "PUT", body });
       await onVerificationComplete();
@@ -110,7 +116,8 @@ export default function ActiveLivenessStep({ sessionId, onVerificationComplete }
       <h1 className="font-display text-3xl text-ink-900">Live camera verification</h1>
       <p className="text-sm text-ink-500">
         Allow camera access, face the camera, follow the random head-turn prompt, and return to center.
-        The short video is analyzed for movement and is not saved; only the captured portrait is retained for comparison.
+        The short video is analyzed for movement and is not saved. Your uploaded photo is analyzed separately;
+        this live camera portrait is retained for face comparison.
       </p>
       <div className="mx-auto max-w-xl overflow-hidden rounded-2xl bg-slate-950">
         <video ref={videoRef} autoPlay muted playsInline aria-label="Live camera preview"
@@ -120,10 +127,16 @@ export default function ActiveLivenessStep({ sessionId, onVerificationComplete }
         {countdown > 0 ? `${instruction} Recording: ${countdown} seconds remaining.` : instruction}
       </p>
       {error && <p role="alert" className="text-red-700">{error}</p>}
-      <button type="button" disabled={busy} onClick={startLivenessCheck}
-        className="rounded-xl bg-[var(--brand)] px-6 py-3 font-semibold text-white disabled:opacity-50">
-        {busy ? "Checking liveness…" : "Start liveness check"}
-      </button>
+      <div className="flex flex-wrap gap-3">
+        <button type="button" disabled={busy} onClick={onBack}
+          className="rounded-xl border px-6 py-3 font-semibold disabled:opacity-50">
+          Back to portrait upload
+        </button>
+        <button type="button" disabled={busy} onClick={startLivenessCheck}
+          className="rounded-xl bg-[var(--brand)] px-6 py-3 font-semibold text-white disabled:opacity-50">
+          {busy ? "Checking liveness…" : "Start liveness check"}
+        </button>
+      </div>
       <p className="text-xs leading-relaxed text-ink-500">
         This active movement check is a prototype signal, not certified anti-spoof protection or proof of identity.
         Government issuance is not checked.

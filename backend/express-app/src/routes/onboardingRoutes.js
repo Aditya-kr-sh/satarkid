@@ -14,7 +14,8 @@ router.post("/session/document", upload.fields([{ name: "frontImage", maxCount: 
 router.put("/session/:sessionId/personal-info", controller.submitPersonalInfo);
 router.post("/session/:sessionId/liveness-challenge", controller.issueLivenessChallenge);
 router.put("/session/:sessionId/selfie", upload.fields([
-  { name: "selfie_front", maxCount: 1 }, { name: "liveness_video", maxCount: 1 },
+  { name: "selfie_front", maxCount: 1 }, { name: "portrait_image", maxCount: 1 },
+  { name: "liveness_video", maxCount: 1 },
 ]), controller.processSelfie);
 router.get("/session/:sessionId/analysis", controller.getAnalysis);
 module.exports = router;

@@ -50,8 +50,10 @@ with httpx.Client(base_url="http://127.0.0.1:5001", timeout=180) as client:
             video_type = mime_by_suffix.get(liveness_path.suffix.lower())
             if not video_type:
                 parser.error("liveness videos must be WebM, MP4, or MOV files")
+            portrait_bytes = (args.samples / args.portrait).read_bytes()
             response = client.put(f"/api/v1/onboarding/session/{data['sessionId']}/selfie", files={
-                "selfie_front": ("portrait.png", (args.samples / args.portrait).read_bytes(), "image/png"),
+                "selfie_front": ("portrait.png", portrait_bytes, "image/png"),
+                "portrait_image": ("analysis-portrait.png", portrait_bytes, "image/png"),
                 "liveness_video": (liveness_path.name, liveness_path.read_bytes(), video_type),
             })
             result["portrait_status"] = response.status_code
@@ -101,7 +103,8 @@ with httpx.Client(base_url="http://127.0.0.1:5001", timeout=180) as client:
                 assert result["dob_precision"] == "year" and analysis["fields"]["date_of_birth"] is None
             if kind == "PAN": assert result["checks"]["is_test_document"] is True
         for url in [data.get("documentUrl"), data.get("documentBackUrl"), data.get("documentFaceUrl"),
-                    selfie.get("selfieUrl") if selfie else None]:
+                    selfie.get("selfieUrl") if selfie else None,
+                    analysis.get("aiImageAnalysis", {}).get("portrait", {}).get("image_url") if selfie else None]:
             if url: client.get(url).raise_for_status()
         results.append(result)
         args.output.parent.mkdir(parents=True, exist_ok=True)

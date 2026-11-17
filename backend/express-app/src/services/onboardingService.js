@@ -104,9 +104,9 @@ class OnboardingService {
     }
   }
 
-  async processSelfie(id, { frontBuffer, livenessVideoBuffer, videoType }) {
-    if (!frontBuffer || !livenessVideoBuffer) {
-      throw Object.assign(new Error("Complete the camera liveness check before submitting a portrait."), { statusCode: 400 });
+  async processSelfie(id, { frontBuffer, portraitBuffer, livenessVideoBuffer, videoType }) {
+    if (!frontBuffer || !portraitBuffer || !livenessVideoBuffer) {
+      throw Object.assign(new Error("Upload a portrait photo and complete the camera liveness check."), { statusCode: 400 });
     }
     const session = await this.getSession(id);
     if (!session) throw Object.assign(new Error("Submission not found."), { statusCode: 404 });
@@ -117,8 +117,8 @@ class OnboardingService {
       throw Object.assign(new Error(liveness?.error || "Liveness could not be confirmed. Please try again."), { statusCode: 422 });
     }
     const { face_match_threshold: threshold } = await settingsService.getSettings();
-    const [selfieUrl, portraitAi, comparison] = await Promise.all([
-      uploadBuffer(frontBuffer), aiImages.analyzePortrait(frontBuffer),
+    const [selfieUrl, analysisPortraitUrl, portraitAi, comparison] = await Promise.all([
+      uploadBuffer(frontBuffer), uploadBuffer(portraitBuffer), aiImages.analyzePortrait(portraitBuffer),
       session.kyc_submission_id ? this._compareFaceToDocument(frontBuffer, session.kyc_submission_id, threshold) : Promise.resolve(null),
     ]);
     if (session.kyc_submission_id && (!comparison || (comparison.face_found && !Number.isFinite(comparison.similarity_score)))) {
@@ -138,7 +138,8 @@ class OnboardingService {
     else flags.no_face_in_selfie = true;
     await pool.query(`UPDATE onboarding_sessions SET selfie_url=$1, face_similarity=$2, risk_flags=$3::jsonb,
       ai_image_result=COALESCE(ai_image_result,'{}'::jsonb) || $4::jsonb, face_match_threshold=$5, status='submitted' WHERE id=$6`,
-      [selfieUrl, similarity, JSON.stringify(flags), JSON.stringify({ portrait: portraitAi }), threshold, id]);
+      [selfieUrl, similarity, JSON.stringify(flags),
+        JSON.stringify({ portrait: { ...portraitAi, image_url: analysisPortraitUrl } }), threshold, id]);
     return { selfieUrl, faceSimilarity: similarity, livenessConfirmed: true, isMatch: similarity == null ? null : similarity >= threshold,
       riskFlags: flags, outcome: "pending", status: "submitted" };
   }

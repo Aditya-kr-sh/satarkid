@@ -1,7 +1,7 @@
 /** SatarkID implemented capabilities, not accuracy claims. */
 export const STATS = [
   { label: "Indian document types", value: 2, display: "2", suffix: "" },
-  { label: "Analysis steps", value: 3, display: "3", suffix: "" },
+  { label: "Analysis steps", value: 4, display: "4", suffix: "" },
   { label: "External OCR API calls", value: 0, display: "0", suffix: "", static: true },
   { label: "Review before decisions", value: 100, display: "Manual", suffix: "", static: true },
 ];
@@ -11,13 +11,13 @@ export const FEATURES = [
   { title: "Image-analysis findings", desc: "Inspect experimental compression, metadata and image checks. These signals do not establish authenticity.", icon: "shield-check", accent: "from-brand-500 to-brand-700" },
   { title: "Indian document fields", desc: "Handle masked Aadhaar, year-only birth dates, PAN syntax and Aadhaar checksum checks.", icon: "fingerprint", accent: "from-brand-500 to-blue-500" },
   { title: "Manual correction", desc: "Correct OCR fields or continue with missing text. Original extraction and manual edits remain distinguishable.", icon: "sparkles", accent: "from-brand-600 to-blue-600" },
-  { title: "Case review", desc: "See document, face and OCR findings together. All cases require manual review; video and liveness are outside this prototype.", icon: "check-circle", accent: "from-sky-500 to-brand-600" },
+  { title: "Case review", desc: "Review document, face, OCR and prototype head-turn liveness evidence together. All cases require manual review.", icon: "check-circle", accent: "from-sky-500 to-brand-600" },
 ];
 export const HOW_IT_WORKS = [
   { step: "01", title: "Upload evidence", desc: "Select Aadhaar or PAN and upload an image or unlocked PDF of up to two pages.", icon: "file-search" },
   { step: "02", title: "Review extracted text", desc: "Review local OCR and the independently extracted document face. Leave unreadable details blank.", icon: "shield-check" },
-  { step: "03", title: "Compare a portrait", desc: "Upload a reference portrait for local face comparison. A still image does not establish liveness.", icon: "scan-face" },
-  { step: "04", title: "Inspect the findings", desc: "Review saved evidence and limitations. A matching face does not establish official authority or a legitimate demand.", icon: "check-circle" },
+  { step: "03", title: "Upload a portrait", desc: "Choose the photo to score for experimental AI-generation signals. Its source image is shown with the result.", icon: "scan-face" },
+  { step: "04", title: "Complete the live check", desc: "Follow a random head-turn prompt; a separate camera portrait is compared with the document face before you review results.", icon: "check-circle" },
 ];
 export const WHY_CHOOSE = [
   { title: "Built for Indian documents", desc: "Aadhaar and individual PAN fields, PDFs and masked-number support.", icon: "file-search" },
