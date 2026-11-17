@@ -1,0 +1,310 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --canvas: #f8faff;
+  --card: #ffffff;
+  --brand: #2563eb;
+  --ink: #0f172a;
+  --muted: #64748b;
+  --soft-border: #e2e8f0;
+  --ink-50: #f8fafc;
+  --ink-100: #e2e8f0;
+  --ink-200: #cbd5e1;
+  --ink-400: #94a3b8;
+  --ink-500: #64748b;
+  --ink-600: #475569;
+  --ink-700: #334155;
+  --ink-900: #0f172a;
+  --ink-950: #0b1120;
+  --glass-bg: rgba(255, 255, 255, 0.7);
+  --glass-border: rgba(226, 232, 240, 0.6);
+  /* Single UI typeface — Lato (loaded in app/layout.js) */
+  --font-body: var(--font-lato);
+  --font-display: var(--font-lato);
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --canvas: #0b1120;
+  --card: #111827;
+  --brand: #3b82f6;
+  --ink: #e2e8f0;
+  --muted: #a0aec0;
+  --soft-border: #334155;
+  --ink-50: #172033;
+  --ink-100: #1e293b;
+  --ink-200: #334155;
+  --ink-400: #94a3b8;
+  --ink-500: #a0aec0;
+  --ink-600: #cbd5e1;
+  --ink-700: #e2e8f0;
+  --ink-900: #f8fafc;
+  --ink-950: #020617;
+  --glass-bg: rgba(17, 24, 39, 0.82);
+  --glass-border: rgba(71, 85, 105, 0.75);
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-card: var(--card);
+  --color-brand: var(--brand);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-ink-50: var(--ink-50);
+  --color-ink-100: var(--ink-100);
+  --color-ink-200: var(--ink-200);
+  --color-ink-400: var(--ink-400);
+  --color-ink-500: var(--ink-500);
+  --color-ink-600: var(--ink-600);
+  --color-ink-700: var(--ink-700);
+  --color-ink-900: var(--ink-900);
+  --color-ink-950: var(--ink-950);
+  --color-brand-50: #eff6ff;
+  --color-brand-100: #dbeafe;
+  --color-brand-200: #bfdbfe;
+  --color-brand-300: #93c5fd;
+  --color-brand-400: #60a5fa;
+  --color-brand-500: #2563eb;
+  --color-brand-600: #1d4ed8;
+  --color-brand-700: #1e40af;
+  --color-brand-950: #172554;
+  --font-sans: var(--font-lato), ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-body);
+  --font-display: var(--font-display);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-display), "Segoe UI", sans-serif;
+}
+
+body {
+  background-color: var(--canvas);
+  background-image:
+    radial-gradient(
+      1200px 600px at 8% -10%,
+      rgba(37, 99, 235, 0.12) 0%,
+      rgba(37, 99, 235, 0) 60%
+    ),
+    radial-gradient(
+      1000px 520px at 95% -15%,
+      rgba(59, 130, 246, 0.12) 0%,
+      rgba(59, 130, 246, 0) 55%
+    );
+  color: var(--ink);
+  font-family: var(--font-body), "Segoe UI", sans-serif;
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+:root[data-theme="dark"] body {
+  background-image:
+    radial-gradient(
+      1200px 600px at 8% -10%,
+      rgba(37, 99, 235, 0.1) 0%,
+      rgba(37, 99, 235, 0) 60%
+    ),
+    radial-gradient(
+      1000px 520px at 95% -15%,
+      rgba(59, 130, 246, 0.08) 0%,
+      rgba(59, 130, 246, 0) 55%
+    );
+}
+
+:root[data-theme="dark"] .bg-white {
+  background-color: var(--card);
+}
+
+:root[data-theme="dark"] .bg-white\/80,
+:root[data-theme="dark"] .bg-white\/70 {
+  background-color: rgb(17 24 39 / 88%);
+}
+
+:root[data-theme="dark"] .bg-slate-50 {
+  background-color: #0f172a;
+}
+
+:root[data-theme="dark"] .bg-slate-100 {
+  background-color: #1e293b;
+}
+
+:root[data-theme="dark"] .bg-slate-200 {
+  background-color: #334155;
+}
+
+:root[data-theme="dark"] .text-slate-900 {
+  color: #f1f5f9;
+}
+
+:root[data-theme="dark"] .text-slate-800 {
+  color: #e2e8f0;
+}
+
+:root[data-theme="dark"] .text-slate-700 {
+  color: #cbd5e1;
+}
+
+:root[data-theme="dark"] .text-slate-600 {
+  color: #b6c2d1;
+}
+
+:root[data-theme="dark"] .text-slate-500,
+:root[data-theme="dark"] .text-slate-400 {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .border-slate-100,
+:root[data-theme="dark"] .border-slate-200 {
+  border-color: #334155;
+}
+
+:root[data-theme="dark"] .border-slate-300 {
+  border-color: #475569;
+}
+
+:root[data-theme="dark"] .bg-blue-50 {
+  background-color: #172554;
+}
+
+:root[data-theme="dark"] .bg-brand-50 {
+  background-color: #172554;
+}
+
+:root[data-theme="dark"] .bg-ink-900 {
+  background-color: #1e293b;
+}
+
+:root[data-theme="dark"] .bg-blue-100 {
+  background-color: #1e3a8a;
+}
+
+:root[data-theme="dark"] .text-blue-700 {
+  color: #93c5fd;
+}
+
+:root[data-theme="dark"] .text-blue-800,
+:root[data-theme="dark"] .text-blue-900 {
+  color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .text-brand-600,
+:root[data-theme="dark"] .text-brand-700 {
+  color: #bfdbfe;
+}
+
+:root[data-theme="dark"] .border-blue-200 {
+  border-color: #1d4ed8;
+}
+
+:root[data-theme="dark"] .border-blue-600 {
+  border-color: #60a5fa;
+}
+
+:root[data-theme="dark"] .bg-amber-50 {
+  background-color: #422006;
+}
+
+:root[data-theme="dark"] .bg-amber-100 {
+  background-color: #78350f;
+}
+
+:root[data-theme="dark"] .border-amber-200 {
+  border-color: #92400e;
+}
+
+:root[data-theme="dark"] .text-amber-800,
+:root[data-theme="dark"] .text-amber-900 {
+  color: #fcd34d;
+}
+
+:root[data-theme="dark"] .bg-violet-50 {
+  background-color: #2e1065;
+}
+
+:root[data-theme="dark"] .bg-violet-100 {
+  background-color: #4c1d95;
+}
+
+:root[data-theme="dark"] .border-violet-200 {
+  border-color: #6d28d9;
+}
+
+:root[data-theme="dark"] .text-violet-950 {
+  color: #ede9fe;
+}
+
+:root[data-theme="dark"] .text-violet-700 {
+  color: #c4b5fd;
+}
+
+:root[data-theme="dark"] .text-red-700 {
+  color: #fca5a5;
+}
+
+:root[data-theme="dark"] .text-\[\#0F172A\],
+:root[data-theme="dark"] .text-\[\#0B1324\] {
+  color: var(--ink);
+}
+
+:root[data-theme="dark"] .text-\[\#64748B\] {
+  color: var(--muted);
+}
+
+:root[data-theme="dark"] .border-\[\#CBD5E1\] {
+  border-color: #475569;
+}
+
+:root[data-theme="dark"] .text-\[\#94A3B8\] {
+  color: #94a3b8;
+}
+
+:root[data-theme="dark"] .bg-\[\#E5E7EB\] {
+  background-color: #334155;
+}
+
+:root[data-theme="dark"] input {
+  color: var(--ink);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body {
+    transition: none;
+  }
+}
+
+.font-display {
+  font-family: var(--font-display), "Segoe UI", sans-serif;
+}
+
+
+.glass {
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg);
+  backdrop-filter: blur(16px);
+}
+
+.shadow-soft {
+  box-shadow: 0 18px 40px -32px rgba(15, 23, 42, 0.5);
+}
+
+
+.gradient-text {
+  background: linear-gradient(90deg, #2563eb, #0ea5e9);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+
+.bg-grid-dark {
+  background-image:
+    linear-gradient(to right, rgba(148, 163, 184, 0.16) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(148, 163, 184, 0.16) 1px, transparent 1px);
+  background-size: 36px 36px;
+}

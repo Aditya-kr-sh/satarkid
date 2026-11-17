@@ -1,0 +1,32 @@
+[
+  {
+    "filename": "ai-generated-portrait.png",
+    "source": "https://raw.githubusercontent.com/JeongsooP/Community-Forensics/main/test_images/00000420.png",
+    "sha256": "069af2f62865b68c3c0d5a7feb98667306b8b13836d136a7a1c304a2eb172f8b",
+    "generator": "DALL-E 2"
+  },
+  {
+    "filename": "ai-generated-necklace.png",
+    "source": "https://raw.githubusercontent.com/JeongsooP/Community-Forensics/main/test_images/00000274.png",
+    "sha256": "43a7b37d75eac6a04ab0b7b75655b7f12ea97f5de5055f6025b078a6cf36ba09",
+    "generator": "DALL-E 2"
+  },
+  {
+    "filename": "ai-generated-blue-container.png",
+    "source": "https://raw.githubusercontent.com/JeongsooP/Community-Forensics/main/test_images/00000845.png",
+    "sha256": "e3c1d98ae99c54e58546c92db007071913c698803435351a4bcf80efc223247e",
+    "generator": "DALL-E 2"
+  },
+  {
+    "filename": "ai-generated-building.png",
+    "source": "https://raw.githubusercontent.com/JeongsooP/Community-Forensics/main/test_images/00000916.png",
+    "sha256": "a4c434f68a4b8bf2ed6bb6f15b25c72ff8e159fd6c669ec0c35c29a96d0b05be",
+    "generator": "DALL-E 2"
+  },
+  {
+    "filename": "ai-generated-illustration.png",
+    "source": "https://raw.githubusercontent.com/JeongsooP/Community-Forensics/main/test_images/00000989.png",
+    "sha256": "cfe5ba7592ee9f0b3e04f80fc1f9df5081418a93e12bb1dc32d6d64eb361393a",
+    "generator": "DALL-E 2"
+  }
+]
