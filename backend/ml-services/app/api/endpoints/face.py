@@ -6,9 +6,32 @@ import numpy as np
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from app.core.config import settings
 from app.database import postgres
+from app.services import liveness_detector
 from app.services.face_extractor import _detect, _to_vector_literal, is_ready
 
 router = APIRouter(prefix="/face", tags=["Face"])
+
+@router.post("/liveness")
+async def check_liveness(
+    video: UploadFile = File(...),
+    challenge: str = Form(..., pattern="^(turn_left|turn_right)$"),
+):
+    if not liveness_detector.is_ready():
+        raise HTTPException(503, "The 3D face landmark model is unavailable.")
+    content_type = (video.content_type or "").split(";", 1)[0].lower()
+    extensions = {"video/webm": ".webm", "video/mp4": ".mp4", "video/quicktime": ".mov"}
+    if content_type not in extensions:
+        raise HTTPException(400, "Record a WebM or MP4 liveness video.")
+    video_bytes = await video.read(settings.MAX_UPLOAD_MB * 1024 * 1024 + 1)
+    if not video_bytes or len(video_bytes) > settings.MAX_UPLOAD_MB * 1024 * 1024:
+        raise HTTPException(400, "The liveness video is empty or too large.")
+    try:
+        return await asyncio.to_thread(
+            liveness_detector.verify_video, video_bytes, extensions[content_type], challenge
+        )
+    except RuntimeError as exc:
+        raise HTTPException(503, str(exc)) from exc
+
 
 @router.post("/compare")
 async def compare_faces(selfie_image: UploadFile = File(...), submission_id: UUID = Form(...),

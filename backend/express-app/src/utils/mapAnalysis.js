@@ -17,6 +17,9 @@ function mapAnalysis(row, threshold) {
     comparisonThresholdUsed: row.face_match_threshold, forgeryDetails: row.forgery_result || null,
     aiImageAnalysis: row.ai_image_result || {},
   };
+  const livenessStatus = mapped.riskFlags.liveness_confirmed
+    ? "confirmed"
+    : mapped.riskFlags.liveness_not_performed ? "not_performed" : "not_recorded";
   // Interpret old and new comparisons at the displayed threshold. Keep saved
   // risk scores/history unchanged; this evidence view makes no approval decision.
   const flags = { ...mapped.riskFlags };
@@ -34,6 +37,7 @@ function mapAnalysis(row, threshold) {
       message: mapped.ocrData.message, fields: coreFields(mapped.ocrData.extractedFields) } : null,
     documentUrl: mapped.documentUrl, documentBackUrl: mapped.documentBackUrl,
     documentFaceUrl: mapped.documentFaceUrl, portraitUrl: mapped.selfieUrl,
+    livenessStatus,
     faceSimilarity: mapped.faceSimilarity, faceIsMatch: mapped.faceIsMatch,
     faceMatchThreshold: threshold, comparisonThresholdUsed: mapped.comparisonThresholdUsed,
     forgery: mapped.forgeryDetails, aiImageAnalysis: mapped.aiImageAnalysis,

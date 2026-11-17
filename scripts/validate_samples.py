@@ -9,9 +9,13 @@ parser.add_argument("--samples", type=Path, required=True)
 parser.add_argument("--output", type=Path, required=True)
 parser.add_argument("--only", help="Run one named sample")
 parser.add_argument("--portrait", default="portrait.png")
+parser.add_argument("--liveness-video-left", type=Path)
+parser.add_argument("--liveness-video-right", type=Path)
 parser.add_argument("--expect-no-ocr", action="store_true")
 parser.add_argument("--expect-no-ai", action="store_true")
 args = parser.parse_args()
+if bool(args.liveness_video_left) != bool(args.liveness_video_right):
+    parser.error("provide both --liveness-video-left and --liveness-video-right")
 cases = [("aadhaar-photo-1.jpg", "Aadhaar", "8875"), ("aadhaar-photo-2.jpg", "Aadhaar", "2164"),
          ("aadhaar-photo-3.jpg", "Aadhaar", "2825"), ("aadhaar-pdf-1.pdf", "Aadhaar", "8020"),
          ("aadhaar-pdf-2.pdf", "Aadhaar", "0334"), ("pan-synthetic.png", "PAN", "234Z")]
@@ -36,13 +40,27 @@ with httpx.Client(base_url="http://127.0.0.1:5001", timeout=180) as client:
         response = client.put(f"/api/v1/onboarding/session/{data['sessionId']}/personal-info", json=data["prefill"])
         result["review_status"] = response.status_code
         response.raise_for_status()
-        response = client.put(f"/api/v1/onboarding/session/{data['sessionId']}/selfie",
-                              files={"selfie_front": ("portrait.png", (args.samples / args.portrait).read_bytes(), "image/png")})
-        result["portrait_status"] = response.status_code
-        response.raise_for_status()
-        selfie = response.json()
-        result.update(outcome=selfie["outcome"], face_similarity=selfie.get("faceSimilarity"),
-                      liveness_not_performed=selfie["riskFlags"].get("liveness_not_performed"))
+        selfie = None
+        if args.liveness_video_left and args.liveness_video_right:
+            challenge_response = client.post(f"/api/v1/onboarding/session/{data['sessionId']}/liveness-challenge")
+            challenge_response.raise_for_status()
+            challenge = challenge_response.json()["challenge"]
+            liveness_path = args.liveness_video_left if challenge == "turn_left" else args.liveness_video_right
+            mime_by_suffix = {".webm": "video/webm", ".mp4": "video/mp4", ".mov": "video/quicktime"}
+            video_type = mime_by_suffix.get(liveness_path.suffix.lower())
+            if not video_type:
+                parser.error("liveness videos must be WebM, MP4, or MOV files")
+            response = client.put(f"/api/v1/onboarding/session/{data['sessionId']}/selfie", files={
+                "selfie_front": ("portrait.png", (args.samples / args.portrait).read_bytes(), "image/png"),
+                "liveness_video": (liveness_path.name, liveness_path.read_bytes(), video_type),
+            })
+            result["portrait_status"] = response.status_code
+            response.raise_for_status()
+            selfie = response.json()
+            result.update(outcome=selfie["outcome"], face_similarity=selfie.get("faceSimilarity"),
+                          liveness_confirmed=selfie["livenessConfirmed"])
+        else:
+            result.update(portrait_status="skipped_no_liveness_videos", liveness_confirmed=None)
         response = client.get(f"/api/v1/onboarding/session/{data['sessionId']}/analysis")
         response.raise_for_status()
         analysis = response.json()["analysis"]
@@ -50,8 +68,13 @@ with httpx.Client(base_url="http://127.0.0.1:5001", timeout=180) as client:
                       saved_ocr_status=analysis["ocr"]["status"])
         assert result["ocr_provider"] == "paddleocr"
         assert result["face_extracted"] == (kind == "Aadhaar")
-        assert result["outcome"] == "pending" and result["liveness_not_performed"] is True
-        assert result["saved_status"] == "submitted" and result["checks"]["authority_verified"] is False
+        if selfie:
+            assert result["outcome"] == "pending" and result["liveness_confirmed"] is True
+            assert analysis["livenessStatus"] == "confirmed"
+        else:
+            assert analysis["livenessStatus"] == "not_recorded"
+        assert result["saved_status"] == ("submitted" if selfie else "step_2_complete")
+        assert result["checks"]["authority_verified"] is False
         assert analysis["faceMatchThreshold"] == 0.5
         assert "address" not in analysis["fields"] and "father_name" not in analysis["fields"]
         assert "address" not in data["prefill"] and "postalCode" not in data["prefill"]
@@ -60,7 +83,8 @@ with httpx.Client(base_url="http://127.0.0.1:5001", timeout=180) as client:
             assert analysis["faceIsMatch"] == (analysis["faceSimilarity"] >= 0.5)
         result["face_match_at_50_percent"] = analysis["faceIsMatch"]
         result["ai_scores"] = {}
-        for target in ("document", "portrait"):
+        targets = ("document", "portrait") if selfie else ("document",)
+        for target in targets:
             ai = analysis["aiImageAnalysis"][target]
             assert ai["status"] == ("unavailable" if args.expect_no_ai else "complete")
             for image in ai["images"]:
@@ -76,7 +100,8 @@ with httpx.Client(base_url="http://127.0.0.1:5001", timeout=180) as client:
             if name in ("aadhaar-photo-1.jpg", "aadhaar-pdf-1.pdf"):
                 assert result["dob_precision"] == "year" and analysis["fields"]["date_of_birth"] is None
             if kind == "PAN": assert result["checks"]["is_test_document"] is True
-        for url in [data.get("documentUrl"), data.get("documentBackUrl"), data.get("documentFaceUrl"), selfie.get("selfieUrl")]:
+        for url in [data.get("documentUrl"), data.get("documentBackUrl"), data.get("documentFaceUrl"),
+                    selfie.get("selfieUrl") if selfie else None]:
             if url: client.get(url).raise_for_status()
         results.append(result)
         args.output.parent.mkdir(parents=True, exist_ok=True)

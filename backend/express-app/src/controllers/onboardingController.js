@@ -21,10 +21,19 @@ async function submitPersonalInfo(req, res) {
   try { return res.json({ success: true, ...await service.submitPersonalInfo(req.params.sessionId, req.body) }); }
   catch (error) { return failure(res, error); }
 }
+async function issueLivenessChallenge(req, res) {
+  if (!validId(req.params.sessionId)) return res.status(400).json({ success: false, error: "Invalid submission ID." });
+  try { return res.json({ success: true, ...await service.issueLivenessChallenge(req.params.sessionId) }); }
+  catch (error) { return failure(res, error); }
+}
 async function processSelfie(req, res) {
   if (!validId(req.params.sessionId)) return res.status(400).json({ error: "Invalid submission ID." });
-  if (!req.file) return res.status(400).json({ error: "Upload a portrait image." });
-  try { return res.json({ success: true, ...await service.processSelfie(req.params.sessionId, { frontBuffer: req.file.buffer }) }); }
+  const selfie = req.files?.selfie_front?.[0];
+  const video = req.files?.liveness_video?.[0];
+  if (!selfie || !video) return res.status(400).json({ error: "A portrait and liveness video are required." });
+  try { return res.json({ success: true, ...await service.processSelfie(req.params.sessionId, {
+    frontBuffer: selfie.buffer, livenessVideoBuffer: video.buffer, videoType: video.mimetype,
+  }) }); }
   catch (error) { return failure(res, error); }
 }
 async function getAnalysis(req, res) {
@@ -37,4 +46,4 @@ async function getAnalysis(req, res) {
     return res.json({ analysis: mapAnalysis(row, face_match_threshold) });
   } catch { return res.status(503).json({ error: "Analysis could not be loaded. Please retry." }); }
 }
-module.exports = { startWithDocument, submitPersonalInfo, processSelfie, getAnalysis };
+module.exports = { startWithDocument, submitPersonalInfo, issueLivenessChallenge, processSelfie, getAnalysis };

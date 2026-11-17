@@ -119,9 +119,13 @@ function SubmissionAnalysis({ id }) {
       <div className="mx-auto max-w-7xl px-5 py-7" role="tabpanel" id={`panel-${tab}`} aria-labelledby={`tab-${tab}`}>
         {tab === "overview" && <div className="grid gap-5 md:grid-cols-2">
           <Card title="Face comparison"><FaceSummary data={data} /></Card>
+          <Card title="Active liveness">
+            <p className="text-lg font-semibold capitalize">{data.livenessStatus?.replaceAll("_", " ") || "Not recorded"}</p>
+            <p className="mt-2 text-sm text-slate-600">A random head-turn challenge checks for live movement. This prototype signal is not certified anti-spoof protection or proof of identity.</p>
+          </Card>
           <Card title="Document text"><p className="text-2xl font-semibold capitalize">{data.ocr?.status || "Unavailable"}</p><p className="mt-2 text-sm text-slate-500">Local PaddleOCR · core identity fields</p><p className="mt-4 text-sm text-slate-600">{data.ocr?.message}</p><button onClick={() => setTab("document")} className="mt-5 text-sm font-semibold text-blue-700">Review document and text →</button></Card>
           <Card title="AI-generation analysis"><p className="text-sm text-slate-600">Separate experimental scores for document pages and your portrait. No authenticity decision is made from these scores.</p><button onClick={() => setTab("ai")} className="mt-5 text-sm font-semibold text-blue-700">View AI-image scores →</button></Card>
-          <Card title="What these results mean"><p className="text-sm leading-relaxed text-slate-600">These are analysis findings, not identity approval. Government issuance and liveness have not been checked. Review the document, face comparison, image checks and AI-generation signals together.</p>{data.documentChecks?.is_test_document && <p className="mt-4 text-sm font-semibold text-amber-800">This document is marked as a synthetic test fixture.</p>}</Card>
+          <Card title="What these results mean"><p className="text-sm leading-relaxed text-slate-600">These are analysis findings, not identity approval. Government issuance is not checked; the active liveness result is only a prototype movement signal. Review the document, face comparison, liveness, image checks and AI-generation signals together.</p>{data.documentChecks?.is_test_document && <p className="mt-4 text-sm font-semibold text-amber-800">This document is marked as a synthetic test fixture.</p>}</Card>
         </div>}
         {tab === "document" && <div className="grid gap-5 md:grid-cols-2">
           <EvidenceImage title="Document front / page 1" url={data.documentUrl} />{data.documentBackUrl && <EvidenceImage title="Document back / page 2" url={data.documentBackUrl} />}
@@ -131,7 +135,7 @@ function SubmissionAnalysis({ id }) {
             {data.documentType?.toLowerCase() === "aadhaar" && <span>Checksum: {data.documentChecks?.checksum_valid == null ? "Not checked" : data.documentChecks.checksum_valid ? "Passed" : "Needs review"}</span>}
             <span>Government issuance: Not verified</span></div></Card>
         </div>}
-        {tab === "face" && <div className="grid gap-5 md:grid-cols-2"><EvidenceImage title="Extracted document face" url={data.documentFaceUrl} /><EvidenceImage title="Uploaded portrait" url={data.portraitUrl} /><Card title="Similarity analysis" className="md:col-span-2"><FaceSummary data={data} /><p className="mt-4 text-sm text-slate-500">Face extraction and comparison run independently of OCR. Liveness was not performed.</p></Card></div>}
+        {tab === "face" && <div className="grid gap-5 md:grid-cols-2"><EvidenceImage title="Extracted document face" url={data.documentFaceUrl} /><EvidenceImage title="Uploaded portrait" url={data.portraitUrl} />        <Card title="Similarity analysis" className="md:col-span-2"><FaceSummary data={data} /><p className="mt-4 text-sm text-slate-500">Face extraction and comparison run independently of OCR. Liveness status: {data.livenessStatus?.replaceAll("_", " ") || "not recorded"}.</p></Card></div>}
         {tab === "ai" && <AiSection analysis={data.aiImageAnalysis} />}
         {tab === "forgery" && <div className="space-y-5"><Card title="Experimental image heuristics"><p className="text-4xl font-semibold">{data.forgery?.forgery_score == null ? "Unavailable" : Number(data.forgery.forgery_score).toFixed(2)}<span className="text-lg text-slate-400"> / 100</span></p><p className="mt-3 text-sm text-slate-600">A composite of image checks on the normalized document page. It is not a probability of forgery, an AI-generation detector, or proof of government issuance.</p></Card>
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-3">{IMAGE_CHECKS.map(([key, title, description]) => <Card key={key} title={title}>

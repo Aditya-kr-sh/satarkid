@@ -28,6 +28,17 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parsed["date_of_birth"], "1990-04-15")
         self.assertTrue(parsed["is_test_document"])
 
+    def test_bilingual_pan_name_label_uses_the_nearby_value(self):
+        parsed = parse_lines(lines("FEHTST", "INCOME TAX DEPARTMENT", "Permanent Account Number Card",
+                                   "BFAPL9762A", "नाम / Name", "JOHN SAMPLE",
+                                   "पिता का नाम / Father's Name", "PARENT SAMPLE", "DOB: 10/09/2001"), "pan")
+        self.assertEqual(parsed["full_name"], "JOHN SAMPLE")
+
+    def test_pan_header_fragment_is_not_guessed_as_a_name(self):
+        parsed = parse_lines(lines("FEHTST", "INCOME TAX DEPARTMENT", "Permanent Account Number Card",
+                                   "BFAPL9762A", "DOB: 10/09/2001"), "pan")
+        self.assertIsNone(parsed["full_name"])
+
     def test_multiple_numbers_remain_ambiguous(self):
         parsed = parse_lines(lines("AADHAAR", "XXXX XXXX 1234", "XXXX XXXX 5678"), "aadhaar")
         self.assertIsNone(parsed["document_number"])

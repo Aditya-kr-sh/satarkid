@@ -15,12 +15,29 @@ from app.services import face_extractor
 def upload():
     return UploadFile(io.BytesIO(b'image'), filename='portrait.png', headers=Headers({'content-type': 'image/png'}))
 
+def upload_video(content_type='video/webm'):
+    return UploadFile(io.BytesIO(b'video'), filename='liveness.webm', headers=Headers({'content-type': content_type}))
+
 
 def detected_face():
     return SimpleNamespace(det_score=0.99, embedding=np.ones(512, dtype=np.float32), bbox=np.array([0, 0, 20, 20]))
 
 
 class FaceComparisonTests(unittest.IsolatedAsyncioTestCase):
+    async def test_liveness_endpoint_checks_video_and_runs_detector(self):
+        expected = {'liveness_confirmed': False, 'error': 'The requested head turn was not detected.'}
+        with patch.object(face.liveness_detector, 'is_ready', return_value=True), \
+             patch.object(face.liveness_detector, 'verify_video', return_value=expected) as verify:
+            result = await face.check_liveness(upload_video(), 'turn_left')
+        self.assertEqual(result, expected)
+        verify.assert_called_once_with(b'video', '.webm', 'turn_left')
+
+    async def test_liveness_endpoint_rejects_non_video_uploads(self):
+        with patch.object(face.liveness_detector, 'is_ready', return_value=True):
+            with self.assertRaises(HTTPException) as result:
+                await face.check_liveness(upload_video('image/jpeg'), 'turn_left')
+        self.assertEqual(result.exception.status_code, 400)
+
     async def test_no_face_is_unknown(self):
         with patch.object(face, 'is_ready', return_value=True), patch.object(face, '_detect', return_value=([], np.zeros((20, 20, 3)))):
             result = await face.compare_faces(upload(), uuid4(), 0.5)

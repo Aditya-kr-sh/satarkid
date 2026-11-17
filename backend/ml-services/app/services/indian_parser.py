@@ -6,6 +6,10 @@ AADHAAR = re.compile(r"(?<!\d)(?:[2-9]\d{3}[ \-]?\d{4}[ \-]?\d{4}|[Xx*]{4}\s?[Xx
 PAN = re.compile(r"\b[A-Z]{3}P[A-Z]\d{4}[A-Z]\b", re.I)
 DATE = re.compile(r"(?<!\d)(\d{1,2}[/.\-]\d{1,2}[/.\-]\d{4})(?!\d)")
 SKIP_NAME = re.compile(r"government|india|income|department|authority|unique|identification|permanent|account|number|synthetic|test fixture|software|validation|portrait|not a|address|male|female|birth|year|father|enrol|issue|download|www\.|uidai|help|signature", re.I)
+FATHER_NAME_LABEL = re.compile(r"Father(?:'s|’s)?\s*Name|पिता\s*(?:का)?\s*नाम", re.I)
+NAME_VALUE = re.compile(r"[A-Za-z][A-Za-z .'-]{2,80}")
+NAME_LABELS = (r"\b(?:Full\s+)?Name\b", r"नाम")
+FATHER_NAME_LABELS = (r"Father(?:'s|’s)?\s*Name", r"पिता\s*(?:का)?\s*नाम")
 
 
 def parse_lines(lines, requested_type):
@@ -49,22 +53,59 @@ def parse_lines(lines, requested_type):
     if re.search(r"\bfemale\b", joined, re.I): fields["gender"] = "Female"
     elif re.search(r"\bmale\b", joined, re.I): fields["gender"] = "Male"
 
-    def label_value(label):
+    def is_name_value(value):
+        return bool(NAME_VALUE.fullmatch(value)) and not SKIP_NAME.search(value) and not PAN.fullmatch(value)
+
+    def nearest_name_below(label_index):
+        label = usable[label_index]
+        label_box = label.get("box")
+        if not label_box or len(label_box) != 4:
+            return None
+        x1, y1, x2, y2 = label_box
+        center_y = (y1 + y2) / 2
+        max_distance = max(40, (y2 - y1) * 2.5)
+        candidates = []
+        for index, candidate in enumerate(usable):
+            if index == label_index or candidate.get("page", 0) != label.get("page", 0):
+                continue
+            box = candidate.get("box")
+            text = candidate["text"].strip()
+            if not box or len(box) != 4 or not is_name_value(text):
+                continue
+            left, top, right, bottom = box
+            candidate_center_y = (top + bottom) / 2
+            overlap = min(x2, right) - max(x1, left)
+            distance = candidate_center_y - center_y
+            if 0 < distance <= max_distance and overlap > 0:
+                candidates.append((distance, -overlap, -candidate.get("confidence", 0), text))
+        return min(candidates)[-1] if candidates else None
+
+    def label_value(labels, *, generic_name=False):
         for i, text in enumerate(texts):
-            match = re.match(label + r"\s*[:/\-]?\s*(.*)", text, re.I)
-            if match:
-                value = match.group(1).strip()
-                if not value and i + 1 < len(texts): value = texts[i + 1].strip()
-                if re.fullmatch(r"[A-Za-z][A-Za-z .'-]{2,80}", value) and not SKIP_NAME.search(value): return value
+            if generic_name and FATHER_NAME_LABEL.search(text):
+                continue
+            matches = [
+                (match.start(), match.group(1).strip())
+                for label in labels
+                for match in re.finditer(label + r"\s*[:/\-]?\s*(.*)", text, re.I)
+            ]
+            if not matches:
+                continue
+            value = max(matches, key=lambda match: match[0])[1]
+            if is_name_value(value):
+                return value
+            if not value:
+                nearby_value = nearest_name_below(i)
+                if nearby_value:
+                    return nearby_value
         return None
-    father_name = label_value(r"Father(?:'s|’s)?\s*Name")
-    fields["full_name"] = label_value(r"(?:Full\s+)?Name")
-    if not fields["full_name"]:
-        # Aadhaar names appear directly above the birth line. Require Latin text
-        # and a front-page candidate; ignore headers and labelled address lines.
+    father_name = label_value(FATHER_NAME_LABELS)
+    fields["full_name"] = label_value(NAME_LABELS, generic_name=True)
+    if not fields["full_name"] and requested_type == "aadhaar":
+        # Aadhaar names appear directly above the birth line; PAN names need a label.
         stop = birth[0][0] if birth else len(texts)
         names = [text for i, text in enumerate(texts[:stop]) if usable[i].get("page", 0) == 0
-                 and re.fullmatch(r"[A-Za-z][A-Za-z .'-]{2,80}", text) and not SKIP_NAME.search(text)
+                 and is_name_value(text)
                  and not PAN.fullmatch(text) and text != father_name]
         if names: fields["full_name"] = names[-1] if requested_type == "aadhaar" else names[0]
 

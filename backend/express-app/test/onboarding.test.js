@@ -24,7 +24,10 @@ function baseMocks(overrides = {}) {
   mock.method(aiImages, "analyzePortrait", async () => ({ status: "unavailable", images: [{ ai_score: null }] }));
   mock.method(service, "getSession", async () => ({ document_type: "Aadhaar", kyc_submission_id: "test", risk_flags: {}, ...overrides }));
   mock.method(settings, "getSettings", async () => ({ face_match_threshold: 0.5 }));
-  return mock.method(pool, "query", async () => ({ rows: [] }));
+  mock.method(service, "_verifyLiveness", async () => ({ liveness_confirmed: true }));
+  return mock.method(pool, "query", async query => query.includes("AS liveness_challenge")
+    ? { rows: [{ liveness_challenge: "turn_left" }], rowCount: 1 }
+    : { rows: [], rowCount: 1 });
 }
 function response() {
   return { code: 200, body: null, status(code) { this.code = code; return this; },
@@ -43,34 +46,66 @@ test("unsupported document types fail before processing", async () => {
   assert.equal(res.code, 400);
   assert.equal(process.mock.callCount(), 0);
 });
-test("a matching still portrait replaces old findings without approving identity", async () => {
-  const writes = baseMocks({ risk_flags: { face_mismatch: true, face_uncertain: true, no_face_in_selfie: true, liveness_confirmed: true } });
+test("liveness challenges are short-lived and server-selected", async () => {
+  baseMocks();
+  const challenge = await service.issueLivenessChallenge("test");
+  assert.ok(["turn_left", "turn_right"].includes(challenge.challenge));
+  assert.equal(challenge.expiresInSeconds, 120);
+});
+test("a live matching portrait replaces old findings without approving identity", async () => {
+  const writes = baseMocks({ risk_flags: { face_mismatch: true, face_uncertain: true, no_face_in_selfie: true,
+    liveness_confirmed: true, liveness_challenge: "turn_left", liveness_challenge_expires_at: "2025-01-01T00:00:00Z" } });
   const compare = mock.method(service, "_compareFaceToDocument", async () => ({ face_found: true, similarity_score: 0.5 }));
-  const result = await service.processSelfie("test", { frontBuffer: image, livenessIsLive: true });
+  const result = await service.processSelfie("test", { frontBuffer: image, livenessVideoBuffer: image, videoType: "video/webm" });
   assert.equal(compare.mock.calls[0].arguments[2], 0.5);
   assert.equal(result.isMatch, true);
   assert.equal(result.outcome, "pending");
   assert.equal(result.status, "submitted");
-  assert.equal(result.riskFlags.liveness_not_performed, true);
-  for (const key of ["face_mismatch", "face_uncertain", "no_face_in_selfie", "liveness_confirmed"]) assert.equal(result.riskFlags[key], undefined);
-  const [sql, values] = writes.mock.calls[0].arguments;
+  assert.equal(result.livenessConfirmed, true);
+  assert.equal(result.riskFlags.liveness_confirmed, true);
+  assert.equal(result.riskFlags.verification_mode, "active_liveness");
+  assert.equal(result.riskFlags.liveness_not_performed, undefined);
+  assert.equal(result.riskFlags.liveness_challenge, undefined);
+  assert.equal(result.riskFlags.liveness_challenge_expires_at, undefined);
+  assert.deepEqual(service._verifyLiveness.mock.calls[0].arguments, [image, "video/webm", "turn_left"]);
+  for (const key of ["face_mismatch", "face_uncertain", "no_face_in_selfie"]) assert.equal(result.riskFlags[key], undefined);
+  const [sql, values] = writes.mock.calls.find(call => call.arguments[0].includes("SET selfie_url")).arguments;
   assert.equal(values[4], 0.5);
   assert.equal(JSON.parse(values[3]).portrait.images[0].ai_score, null);
   assert.doesNotMatch(sql, /risk_score\s*=/);
+});
+test("failed liveness cannot store or submit a portrait", async () => {
+  const writes = baseMocks();
+  service._verifyLiveness.mock.mockImplementation(async () => ({
+    liveness_confirmed: false, error: "The requested head turn was not detected.",
+  }));
+  await assert.rejects(service.processSelfie("test", {
+    frontBuffer: image, livenessVideoBuffer: image, videoType: "video/webm",
+  }), /head turn was not detected/);
+  assert.equal(aiImages.analyzePortrait.mock.callCount(), 0);
+  assert.equal(writes.mock.calls.filter(call => call.arguments[0].includes("SET selfie_url")).length, 0);
+});
+test("a still image cannot bypass the live camera challenge", async () => {
+  baseMocks();
+  await assert.rejects(service.processSelfie("test", { frontBuffer: image }), /liveness check/);
 });
 test("comparison failure or invalid scores cannot submit a successful result", async () => {
   const writes = baseMocks();
   const compare = mock.method(service, "_compareFaceToDocument", async () => null);
   for (const value of [null, { face_found: true, similarity_score: null }, { face_found: true, similarity_score: NaN }]) {
     compare.mock.mockImplementation(async () => value);
-    await assert.rejects(service.processSelfie("test", { frontBuffer: image }), /comparison is unavailable/);
+    await assert.rejects(service.processSelfie("test", {
+      frontBuffer: image, livenessVideoBuffer: image, videoType: "video/webm",
+    }), /comparison is unavailable/);
   }
-  assert.equal(writes.mock.callCount(), 0);
+  assert.equal(writes.mock.calls.filter(call => call.arguments[0].includes("SET selfie_url")).length, 0);
 });
 test("no face in a portrait is unknown rather than a zero-percent match", async () => {
   baseMocks();
   mock.method(service, "_compareFaceToDocument", async () => ({ face_found: false, similarity_score: null }));
-  const result = await service.processSelfie("test", { frontBuffer: image });
+  const result = await service.processSelfie("test", {
+    frontBuffer: image, livenessVideoBuffer: image, videoType: "video/webm",
+  });
   assert.equal(result.faceSimilarity, null);
   assert.equal(result.isMatch, null);
   assert.equal(result.riskFlags.no_face_in_selfie, true);
@@ -78,7 +113,9 @@ test("no face in a portrait is unknown rather than a zero-percent match", async 
 test("a document without a face still receives portrait AI analysis", async () => {
   baseMocks({ document_type: "PAN", kyc_submission_id: null });
   const compare = mock.method(service, "_compareFaceToDocument", async () => { throw new Error("must not compare"); });
-  const result = await service.processSelfie("test", { frontBuffer: image });
+  const result = await service.processSelfie("test", {
+    frontBuffer: image, livenessVideoBuffer: image, videoType: "video/webm",
+  });
   assert.equal(result.isMatch, null);
   assert.equal(result.riskFlags.face_comparison_skipped, true);
   assert.equal(compare.mock.callCount(), 0);

@@ -1,13 +1,13 @@
 # SatarkID
 
-Local Aadhaar/PAN analysis for a B.Tech digital-arrest prevention project. Upload a document, review its core fields, then upload a portrait to open the analysis directly.
+Local Aadhaar/PAN analysis for a B.Tech digital-arrest prevention project. Upload a document, review its core fields, then complete a live camera check to open the analysis directly.
 
 - PaddleOCR extracts printed English names, identifiers, birth dates/years and gender.
-- InsightFace extracts document faces independently of OCR; portrait similarity uses a **50% threshold**.
+- InsightFace extracts document faces independently of OCR; portrait similarity uses a **50% threshold**. A one-time random head-turn challenge checks for centered→turn→center movement in a short live camera clip before accepting the captured portrait.
 - Aadhaar checksum/PAN format checks and image heuristics provide review findings.
 - Community Forensics scores AI-generation signals for each document page and portrait, locally through ONNX Runtime. Document pages use up to five overlapping views and report the highest signal; this improves page coverage but can increase false positives. Scores are experimental, not calibrated probabilities, and not proof of authenticity or validated ID-document detection. An unavailable detector returns an unknown score.
 
-Government issuance and liveness are not verified. This prototype does not independently detect scam calls. It runs on loopback without production authentication. Private documents, models, credentials and uploads stay outside Git.
+Government issuance is not verified. The active head-turn check is a prototype movement signal, not certified anti-spoof protection or proof of identity; it can be vulnerable to replay and presentation attacks. The short liveness video is analyzed locally and is not saved; only the captured portrait is retained. This prototype does not independently detect scam calls. It runs on loopback without production authentication. Private documents, models, credentials and uploads stay outside Git.
 
 ## Run
 
@@ -36,9 +36,9 @@ Configuration is in the ignored `.env`: `DATABASE_URL`, `DATABASE_CA_FILE`, `LOC
 
 ## Samples
 
-Samples live in the workspace's `data/india-samples` folder. Choose `aadhaar-photo-*.jpg` or `aadhaar-pdf-*.pdf` for Aadhaar and `pan-synthetic.png` for PAN. The synthetic PAN has no face. Use `portrait.png` for the usual portrait comparison.
+Samples live in the workspace's `data/india-samples` folder. Choose `aadhaar-photo-*.jpg` or `aadhaar-pdf-*.pdf` for Aadhaar and `pan-synthetic.png` for PAN. The synthetic PAN has no face. The sample runner checks document and review steps by default; full portrait submission requires local WebM/MP4/MOV clips for both head-turn directions.
 
-For an AI-generation test, use **`ai-generated-portrait.png` at the portrait step** with an Aadhaar sample. It depicts a different person, so a face mismatch is expected. The four other `ai-generated-*.png` files test objects/scenes rather than identity documents; unreadable identity fields can remain blank. Sources and hashes are in `scripts/ai_samples.json`.
+For an AI-generation test, use **`ai-generated-portrait.png` as the captured portrait** with an Aadhaar sample and the two local liveness clips. It depicts a different person, so a face mismatch is expected. The four other `ai-generated-*.png` files test objects/scenes rather than identity documents; unreadable identity fields can remain blank. Sources and hashes are in `scripts/ai_samples.json`.
 
 ```bash
 # Restore the five public generated fixtures if needed:
@@ -52,6 +52,6 @@ backend/ml-services/.venv/bin/python scripts/validate_samples.py \
   --samples ../../data/india-samples --output ../../logs/satarkid-validation.json
 ```
 
-The sample runner creates local submissions and checks stored analysis and image URLs. Add `--portrait ai-generated-portrait.png` to test the generated portrait. `--expect-no-ocr` and `--expect-no-ai` verify disabled-model behavior after restarting ML with the corresponding environment setting.
+The sample runner creates local submissions and checks stored analysis and image URLs. To test portrait/liveness, provide local clips that show the same test participant turning each way, for example `--liveness-video-left ./liveness-left.webm --liveness-video-right ./liveness-right.webm`; it requests a fresh challenge and submits the matching clip. Add `--portrait ai-generated-portrait.png` to test the generated portrait. `--expect-no-ocr` and `--expect-no-ai` verify disabled-model behavior after restarting ML with the corresponding environment setting.
 
 See [third-party notices](THIRD_PARTY_NOTICES.md) for model provenance and licensing. Development history stays on `main`.

@@ -10,6 +10,7 @@ from app.api.endpoints.face import router as face_router
 from app.api.endpoints.indian_documents import router as indian_documents_router
 from app.database.postgres import get_db_pool
 from app.services import face_extractor, local_ocr, ai_image_detector
+from app.services import liveness_detector
 import app.database.postgres as db_client
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ async def shutdown():
 
 @app.get("/api/v1/ready")
 async def ready():
-    """OCR availability is informative; face/storage readiness gates uploads."""
+    """OCR availability is informative; face, liveness and storage readiness gate uploads."""
     database_ready = False
     if db_client.db_pool:
         try:
@@ -69,7 +70,8 @@ async def ready():
     import os
     storage_ready = (bool(settings.LOCAL_UPLOAD_DIR) and Path(settings.LOCAL_UPLOAD_DIR).is_dir()
                      and os.access(settings.LOCAL_UPLOAD_DIR, os.W_OK) and bool(settings.PUBLIC_UPLOAD_URL))
-    checks = {"models_ready": face_extractor.is_ready(), "database_ready": database_ready,
+    checks = {"models_ready": face_extractor.is_ready(), "liveness_ready": liveness_detector.is_ready(),
+              "database_ready": database_ready,
               "storage_ready": storage_ready}
     ready_now = all(checks.values())
     return JSONResponse(status_code=200 if ready_now else 503, content={
@@ -91,6 +93,7 @@ async def root():
             "/api/v1/ready",
             "/api/v1/documents/analyze-indian",
             "/api/v1/documents/analyze-ai-image",
+            "/api/v1/face/liveness",
             "/api/v1/face/compare",
         ]
     }

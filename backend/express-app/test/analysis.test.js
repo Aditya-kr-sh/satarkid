@@ -25,3 +25,9 @@ test("missing face data remains unknown and AI failures preserve null scores", (
   assert.equal(result.faceIsMatch, null);
   assert.equal(result.aiImageAnalysis.portrait.images[0].ai_score, null);
 });
+test("analysis distinguishes confirmed liveness from older unchecked sessions", () => {
+  const confirmed = mapAnalysis({ risk_flags: { liveness_confirmed: true } }, 0.5);
+  const old = mapAnalysis({ risk_flags: { liveness_not_performed: true } }, 0.5);
+  assert.equal(confirmed.livenessStatus, "confirmed");
+  assert.equal(old.livenessStatus, "not_performed");
+});

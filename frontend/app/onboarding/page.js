@@ -6,10 +6,10 @@ import SiteNav from "../components/SiteNav";
 import Stepper from "../components/Stepper";
 import UploadDocumentStep from "../components/steps/UploadDocumentStep";
 import IndianInfoStep from "../components/steps/IndianInfoStep";
-import StillPhotoVerificationStep from "../components/steps/StillPhotoVerificationStep";
+import ActiveLivenessStep from "../components/steps/ActiveLivenessStep";
 import { API_BASE_URL, requestJson } from "../../lib/api";
 
-const steps = [{ id: 1, label: "Upload Document" }, { id: 2, label: "Review Info" }, { id: 3, label: "Portrait" }];
+const steps = [{ id: 1, label: "Upload Document" }, { id: 2, label: "Review Info" }, { id: 3, label: "Liveness Check" }];
 const emptyForm = { fullName: "", documentNumber: "", dob: "", yearOfBirth: "", gender: "" };
 
 export default function OnboardingPage() {
@@ -57,7 +57,7 @@ export default function OnboardingPage() {
           onChange={(key) => (event) => setForm({ ...form, [key]: event.target.value })}
           validation={session.ocrData?.validation} ocrStatus={session.ocrData?.status}
           ocrMessage={session.ocrData?.message} documentFaceUrl={session.documentFaceUrl} />}
-        {step === 3 && <StillPhotoVerificationStep sessionId={session.sessionId}
+        {step === 3 && <ActiveLivenessStep sessionId={session.sessionId}
           onVerificationComplete={() => router.push(`/analysis/${session.sessionId}`)} />}
         {error && <p role="alert" className="mt-5 text-red-700">{error}</p>}
         {step < 3 && <div className="mt-8 flex justify-between gap-4">
