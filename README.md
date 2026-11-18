@@ -54,5 +54,4 @@ backend/ml-services/.venv/bin/python scripts/validate_samples.py \
 ```
 
 The sample runner creates local submissions and checks stored analysis and image URLs. To test portrait/liveness, provide local clips that show the same test participant turning each way, for example `--liveness-video-left ./liveness-left.webm --liveness-video-right ./liveness-right.webm`; it requests a fresh challenge and submits the matching clip. Add `--portrait ai-generated-portrait.png` to test the generated portrait. `--expect-no-ocr` and `--expect-no-ai` verify disabled-model behavior after restarting ML with the corresponding environment setting.
-
-See [third-party notices](THIRD_PARTY_NOTICES.md) for model provenance and licensing. Development history stays on `main`.
+Development history stays on `main`.
