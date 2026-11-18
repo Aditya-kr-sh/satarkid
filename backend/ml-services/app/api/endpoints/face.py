@@ -64,5 +64,8 @@ async def compare_faces(selfie_image: UploadFile = File(...), submission_id: UUI
     if row is None or not math.isfinite(float(row["similarity"])):
         raise HTTPException(503, "No usable document face embedding was found.")
     score = round(float(row["similarity"]), 4)
+    bbox = np.asarray(face.bbox, dtype=np.float64)
     return {"face_found": True, "similarity_score": score, "is_match": score >= match_threshold,
-            "threshold": match_threshold, "error": None}
+            "threshold": match_threshold, "error": None,
+            "face_detection_confidence": float(face.det_score),
+            "face_region": [int(round(value)) for value in bbox.tolist()]}

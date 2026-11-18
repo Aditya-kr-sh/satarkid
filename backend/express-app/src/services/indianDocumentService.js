@@ -76,7 +76,8 @@ function validateReview(form, documentType) {
 async function submitReview(session, form) {
   const { number, dob, year } = validateReview(form, session.document_type);
   const original = session.ocr_result?.extracted_fields || {};
-  const edited = { full_name: clean(form.fullName), document_number: number,
+  // Address is printed on the Aadhaar back page and is not user-entered, so keep the OCR value.
+  const edited = { full_name: clean(form.fullName), document_number: number, address: clean(original.address) || null,
     date_of_birth: dob || null, year_of_birth: year ? Number(year) : null,
     dob_precision: dob ? "day" : year ? "year" : "unknown", gender: clean(form.gender) };
   const changed = number !== normalizeNumber(original.document_number) || clean(form.fullName).toLowerCase() !== clean(original.full_name).toLowerCase();

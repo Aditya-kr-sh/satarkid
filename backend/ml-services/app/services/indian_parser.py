@@ -10,6 +10,81 @@ FATHER_NAME_LABEL = re.compile(r"Father(?:'s|’s)?\s*Name|पिता\s*(?:क
 NAME_VALUE = re.compile(r"[A-Za-z][A-Za-z .'-]{2,80}")
 NAME_LABELS = (r"\b(?:Full\s+)?Name\b", r"नाम")
 FATHER_NAME_LABELS = (r"Father(?:'s|’s)?\s*Name", r"पिता\s*(?:का)?\s*नाम")
+ADDRESS_LABEL = re.compile(r"^(?:पता|Address)\s*[:/\-]?\s*(.*)$", re.I)
+ADDRESS_STOP = re.compile(r"^(?:पता|Address|नाम|Name|Father|Mother|DOB|D\.O\.B|Year|Gender|Male|Female|VID|Aadhaar|Help|www\.|Signature|Download|Enrol)\b", re.I)
+
+
+def _address_fragment(text, *, inline=False):
+    """Return a printable English address fragment, or None for labels and other languages."""
+    text = re.sub(r"\s+", " ", str(text)).strip(" ,;:-")
+    if len(text) < 5 or not re.search(r"[A-Za-z]{3,}", text):
+        return None
+    # The bundled recognizer is English; skip Devanagari-only lines instead of guessing.
+    if sum(1 for character in text if character.isascii()) / len(text) < 0.85:
+        return None
+    if re.fullmatch(r"[\d\s\-/.,#]+", text):
+        return None
+    if not inline and (ADDRESS_STOP.match(text) or PAN.fullmatch(text)):
+        return None
+    return text
+
+
+def _merge_address(fragments):
+    """Join address lines once, preferring the longest overlapping run."""
+    merged = []
+    for fragment in fragments:
+        if any(fragment.lower() in existing.lower() for existing in merged):
+            continue
+        merged = [existing for existing in merged if existing.lower() not in fragment.lower()]
+        merged.append(fragment)
+    return ", ".join(merged)
+
+
+def _extract_address(usable):
+    """Read the printed address block that follows an Address/पता label on the same page."""
+    for index, line in enumerate(usable):
+        label = ADDRESS_LABEL.match(line["text"].strip())
+        if not label:
+            continue
+        page = line.get("page", 0)
+        fragments = []
+        inline = _address_fragment(label.group(1), inline=True)
+        if inline:
+            fragments.append(inline)
+        box = line.get("box")
+        if box and len(box) == 4:
+            x1, y1, x2, y2 = box
+            center_y = (y1 + y2) / 2
+            reach = max(40, (y2 - y1) * 6)
+            candidates = []
+            for other in usable:
+                other_box = other.get("box")
+                if other is line or other.get("page", 0) != page or not other_box or len(other_box) != 4:
+                    continue
+                left, top, right, bottom = other_box
+                distance = (top + bottom) / 2 - center_y
+                if not 0 < distance <= reach:
+                    continue
+                right_edge = min(x2, right)
+                if right_edge <= max(x1, left):
+                    continue
+                fragment = _address_fragment(other["text"])
+                if fragment:
+                    candidates.append((distance, fragment))
+            fragments.extend(fragment for _, fragment in sorted(candidates)[:3])
+        else:
+            for candidate in usable[index + 1:]:
+                if candidate.get("page", 0) != page or ADDRESS_STOP.match(candidate["text"].strip()):
+                    break
+                fragment = _address_fragment(candidate["text"])
+                if fragment:
+                    fragments.append(fragment)
+                if len(fragments) == 3:
+                    break
+        address = re.sub(r"\s+", " ", _merge_address(fragments)).strip()[:300]
+        if len(address) >= 8:
+            return address
+    return None
 
 
 def parse_lines(lines, requested_type):
@@ -17,7 +92,7 @@ def parse_lines(lines, requested_type):
     texts = [line["text"] for line in usable]
     joined = "\n".join(texts)
     fields = {key: None for key in ("full_name", "document_number", "date_of_birth", "date_of_birth_printed",
-              "year_of_birth", "gender")}
+              "year_of_birth", "gender", "address")}
     pan_hint = bool(re.search(r"income\s*tax|permanent\s*account|\bpan\b", joined, re.I))
     aadhaar_hint = bool(re.search(r"aadhaa?r|uidai|unique\s*identification", joined, re.I))
     pattern = AADHAAR if requested_type == "aadhaar" else PAN
@@ -52,6 +127,8 @@ def parse_lines(lines, requested_type):
             break
     if re.search(r"\bfemale\b", joined, re.I): fields["gender"] = "Female"
     elif re.search(r"\bmale\b", joined, re.I): fields["gender"] = "Male"
+    # The Aadhaar back page prints the address in English below an Address/पता label.
+    fields["address"] = _extract_address(usable)
 
     def is_name_value(value):
         return bool(NAME_VALUE.fullmatch(value)) and not SKIP_NAME.search(value) and not PAN.fullmatch(value)

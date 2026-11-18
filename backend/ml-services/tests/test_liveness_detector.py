@@ -66,6 +66,14 @@ class LivenessDetectorTests(unittest.TestCase):
             result = liveness_detector.verify_video(b"video", ".webm", "turn_left")
 
         self.assertTrue(result["liveness_confirmed"])
+        self.assertEqual(result["challenge"], "turn_left")
+        self.assertEqual(result["challenge_result"], "passed")
+        self.assertEqual(result["face_detection_status"], "detected")
+        self.assertEqual(result["face_detected_frames"], 16)
+        self.assertEqual(result["sampled_frames"], 16)
+        # JSON serialization fails on NumPy scalars, which surfaced as a 500 from the API.
+        self.assertIsInstance(result["face_detected_frames"], int)
+        self.assertIsInstance(result["sampled_frames"], int)
 
     def test_challenged_turn_and_return_confirms_liveness(self):
         yaws = [0, 1, -1, 2, 8, 18, 22, 24, 19, 10, 4, 1, 0, -1, 1, 0]

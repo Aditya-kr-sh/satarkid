@@ -11,6 +11,12 @@ from app.services import ai_image_detector as ai
 
 
 class ScoreTests(unittest.TestCase):
+    def test_model_status_reports_onnx_runtime_information(self):
+        with patch.object(ai, "_runtime_version", "test-version"):
+            status = ai.model_status()
+        self.assertEqual(status["runtime"], "ONNX Runtime")
+        self.assertEqual(status["runtime_version"], "test-version")
+
     def test_binary_output_is_single_logit_sigmoid(self):
         self.assertEqual(ai.score_logit(0), 50)
         self.assertLess(ai.score_logit(-4), 2)

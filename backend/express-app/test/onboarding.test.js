@@ -26,7 +26,8 @@ function baseMocks(overrides = {}) {
   mock.method(aiImages, "analyzePortrait", async () => ({ status: "unavailable", images: [{ ai_score: null }] }));
   mock.method(service, "getSession", async () => ({ document_type: "Aadhaar", kyc_submission_id: "test", risk_flags: {}, ...overrides }));
   mock.method(settings, "getSettings", async () => ({ face_match_threshold: 0.5 }));
-  mock.method(service, "_verifyLiveness", async () => ({ liveness_confirmed: true }));
+  mock.method(service, "_verifyLiveness", async () => ({ liveness_confirmed: true,
+    challenge_result: "passed", face_detection_status: "detected", face_detected_frames: 16, sampled_frames: 16 }));
   return mock.method(pool, "query", async query => query.includes("AS liveness_challenge")
     ? { rows: [{ liveness_challenge: "turn_left" }], rowCount: 1 }
     : { rows: [], rowCount: 1 });
@@ -68,7 +69,8 @@ test("liveness challenges are short-lived and server-selected", async () => {
 test("a live matching portrait replaces old findings without approving identity", async () => {
   const writes = baseMocks({ risk_flags: { face_mismatch: true, face_uncertain: true, no_face_in_selfie: true,
     liveness_confirmed: true, liveness_challenge: "turn_left", liveness_challenge_expires_at: "2025-01-01T00:00:00Z" } });
-  const compare = mock.method(service, "_compareFaceToDocument", async () => ({ face_found: true, similarity_score: 0.5 }));
+  const compare = mock.method(service, "_compareFaceToDocument", async () => ({ face_found: true, similarity_score: 0.5,
+    face_detection_confidence: 0.97, face_region: [2, 3, 18, 19] }));
   const result = await service.processSelfie("test", {
     frontBuffer: image, portraitBuffer: portrait, livenessVideoBuffer: image, videoType: "video/webm",
   });
@@ -80,6 +82,13 @@ test("a live matching portrait replaces old findings without approving identity"
   assert.equal(result.livenessConfirmed, true);
   assert.equal(result.riskFlags.liveness_confirmed, true);
   assert.equal(result.riskFlags.verification_mode, "active_liveness");
+  assert.equal(result.riskFlags.liveness_challenge_completed, "turn_left");
+  assert.equal(result.riskFlags.liveness_challenge_result, "passed");
+  assert.equal(result.riskFlags.liveness_face_detected_frames, 16);
+  assert.equal(result.riskFlags.liveness_sampled_frames, 16);
+  assert.equal(result.riskFlags.portrait_face_detection_confidence, 0.97);
+  assert.deepEqual(result.riskFlags.portrait_face_region, [2, 3, 18, 19]);
+  assert.ok(result.riskFlags.liveness_verified_at);
   assert.equal(result.riskFlags.liveness_not_performed, undefined);
   assert.equal(result.riskFlags.liveness_challenge, undefined);
   assert.equal(result.riskFlags.liveness_challenge_expires_at, undefined);

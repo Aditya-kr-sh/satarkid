@@ -2,10 +2,11 @@
 
 Local Aadhaar/PAN analysis for a B.Tech digital-arrest prevention project. Upload a document, review its core fields, upload the portrait to score, then complete a live camera check to open the analysis directly.
 
-- PaddleOCR extracts printed English names, identifiers, birth dates/years and gender.
+- PaddleOCR extracts printed English names, identifiers, birth dates/years, gender and the address printed below the Address/पता label on an Aadhaar back page.
 - InsightFace extracts document faces independently of OCR; portrait similarity uses a **50% threshold**. A one-time random head-turn challenge checks for centered→turn→center movement in a short live camera clip before accepting the captured portrait.
 - Aadhaar checksum/PAN format checks and image heuristics provide review findings.
 - Community Forensics scores AI-generation signals for each document page and the separately uploaded portrait, locally through ONNX Runtime. Document pages use up to five overlapping views and report the highest signal; this improves page coverage but can increase false positives. Scores are experimental, not calibrated probabilities, and not proof of authenticity or validated ID-document detection. An unavailable detector returns an unknown score.
+- The analysis dashboard highlights OCR text boxes, compares submitted and OCR fields, and reports available face metadata. Its rule-based risk state prioritizes manual review when checks are missing; it does not combine experimental scores into a weighted fraud probability. Image checks display the existing experimental heuristics. A browser-generated PDF summarizes the available results and limitations.
 
 Government issuance is not verified. The active head-turn check is a prototype movement signal, not certified anti-spoof protection or proof of identity; it can be vulnerable to replay and presentation attacks. The short liveness video is analyzed locally and is not saved. The uploaded portrait is retained to display its AI-image result; a separate captured camera portrait is retained for face comparison. This prototype does not independently detect scam calls. It runs on loopback without production authentication. Private documents, models, credentials and uploads stay outside Git.
 

@@ -24,8 +24,21 @@ class OnboardingService {
     return rows[0].id;
   }
 
-  async getSession(id) {
-    const { rows } = await pool.query("SELECT * FROM onboarding_sessions WHERE id=$1", [id]);
+  async getSession(id, { includeFaceMetadata = false } = {}) {
+    const query = includeFaceMetadata
+      ? `SELECT session.*, face.detection_confidence AS document_face_detection_confidence,
+          face.face_region AS document_face_region
+        FROM onboarding_sessions AS session
+        LEFT JOIN LATERAL (
+          SELECT detection_confidence, face_region
+          FROM face_embeddings
+          WHERE submission_id=session.kyc_submission_id
+          ORDER BY created_at DESC
+          LIMIT 1
+        ) AS face ON true
+        WHERE session.id=$1`
+      : "SELECT * FROM onboarding_sessions WHERE id=$1";
+    const { rows } = await pool.query(query, [id]);
     return rows[0] || null;
   }
 
@@ -125,11 +138,29 @@ class OnboardingService {
       throw Object.assign(new Error("Face comparison is unavailable. Check the analysis service and saved embedding."), { statusCode: 502 });
     }
     const similarity = comparison?.similarity_score ?? null;
-    const flags = { ...session.risk_flags, liveness_confirmed: true, verification_mode: "active_liveness" };
+    const flags = {
+      ...session.risk_flags,
+      liveness_confirmed: true,
+      verification_mode: "active_liveness",
+      liveness_challenge_completed: challenge,
+      liveness_challenge_result: liveness.challenge_result ?? null,
+      liveness_face_detection_status: liveness.face_detection_status ?? null,
+      liveness_face_detected_frames: Number.isSafeInteger(liveness.face_detected_frames)
+        ? liveness.face_detected_frames : null,
+      liveness_sampled_frames: Number.isSafeInteger(liveness.sampled_frames)
+        ? liveness.sampled_frames : null,
+      liveness_verified_at: new Date().toISOString(),
+    };
     // Replacing a portrait must replace its findings instead of accumulating them.
     for (const key of ["face_similarity", "face_mismatch", "face_uncertain", "no_face_in_selfie",
       "face_comparison_skipped", "liveness_not_performed", "liveness_challenge",
-      "liveness_challenge_expires_at"]) delete flags[key];
+      "liveness_challenge_expires_at", "portrait_face_detection_confidence",
+      "portrait_face_region"]) delete flags[key];
+    if (comparison?.face_found) {
+      flags.portrait_face_detection_confidence = Number.isFinite(comparison.face_detection_confidence)
+        ? comparison.face_detection_confidence : null;
+      flags.portrait_face_region = comparison.face_region ?? null;
+    }
     if (similarity != null) {
       flags.face_similarity = similarity;
       if (similarity < Math.max(threshold - 0.15, 0.35)) flags.face_mismatch = true;

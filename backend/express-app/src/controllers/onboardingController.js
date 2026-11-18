@@ -43,7 +43,7 @@ async function processSelfie(req, res) {
 async function getAnalysis(req, res) {
   if (!validId(req.params.sessionId)) return res.status(400).json({ error: "Invalid submission ID." });
   try {
-    const row = await service.getSession(req.params.sessionId);
+    const row = await service.getSession(req.params.sessionId, { includeFaceMetadata: true });
     if (!row) return res.status(404).json({ error: "Submission not found." });
     const { face_match_threshold } = await settings.getSettings();
     res.set("Cache-Control", "no-store");

@@ -84,7 +84,7 @@ def _evaluate_yaw_sequence(
 
 def verify_video(
     video_bytes: bytes, suffix: str, challenge: Challenge
-) -> dict[str, bool | str | None]:
+) -> dict[str, bool | str | int | None]:
     """Decode a short clip and verify the server-issued head-turn challenge."""
     if not is_ready():
         raise RuntimeError("The 3D face landmark model is unavailable.")
@@ -159,7 +159,22 @@ def verify_video(
             return {"liveness_confirmed": False, "error": "The video could not be fully read."}
 
         confirmed, error = _evaluate_yaw_sequence(yaws, challenge)
-        return {"liveness_confirmed": confirmed, "error": error}
+        face_detected_frames = int(
+            sum(yaw is not None and np.isfinite(yaw) for yaw in yaws)
+        )
+        return {
+            "liveness_confirmed": confirmed,
+            "error": error,
+            "challenge": challenge,
+            "challenge_result": "passed" if confirmed else "failed",
+            "face_detection_status": (
+                "detected" if face_detected_frames == len(yaws)
+                else "partial" if face_detected_frames
+                else "not_detected"
+            ),
+            "face_detected_frames": face_detected_frames,
+            "sampled_frames": int(len(yaws)),
+        }
     finally:
         if capture is not None:
             capture.release()

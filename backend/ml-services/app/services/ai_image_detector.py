@@ -31,6 +31,7 @@ _output_name = "logits"
 _execution_provider = None
 _available_providers = []
 _provider_fallback = None
+_runtime_version = None
 _model_state = {"state": "not_loaded", "error_code": None, "message": None}
 logger = logging.getLogger(__name__)
 
@@ -57,6 +58,8 @@ def model_status():
         "execution_provider": _execution_provider,
         "available_providers": list(_available_providers),
         "provider_fallback": _provider_fallback,
+        "runtime": "ONNX Runtime",
+        "runtime_version": _runtime_version,
     }
 
 
@@ -109,9 +112,11 @@ def _preferred_provider(available_providers):
 def load_model():
     global _session, _input_name, _output_name, _execution_provider
     global _available_providers, _provider_fallback, _run_semaphore
+    global _runtime_version
     _execution_provider = None
     _available_providers = []
     _provider_fallback = None
+    _runtime_version = None
     _run_semaphore = threading.BoundedSemaphore(1)
     if not settings.AI_DETECTION_ENABLED:
         _session = None
@@ -121,6 +126,7 @@ def load_model():
     _set_model_state("loading")
     try:
         import onnxruntime as ort
+        _runtime_version = ort.__version__
         model_path = Path(settings.AI_MODEL_PATH)
         if not model_path.is_file():
             raise FileNotFoundError("Pinned AI-image detector model is missing")

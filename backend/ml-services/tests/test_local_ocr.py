@@ -12,7 +12,25 @@ def lines(*texts):
     return [{"text": text, "confidence": 0.99, "page": 0, "box": [0, i * 20, 200, i * 20 + 15]} for i, text in enumerate(texts)]
 
 
+def page_lines(page, *texts):
+    return [{"text": text, "confidence": 0.99, "page": page, "box": [0, i * 30, 400, i * 30 + 20]} for i, text in enumerate(texts)]
+
+
 class ParserTests(unittest.TestCase):
+    def test_aadhaar_back_page_address_is_read_once_in_english(self):
+        address = "C/o SAMPLE FATHER, Plot No-679, Near Savodaya City, Adampur, Patna, Bihar - 801105"
+        parsed = parse_lines([
+            *page_lines(0, "AADHAAR", "SAMPLE PERSON", "DOB: 01/01/1990", "MALE", "1234 5678 9012"),
+            *page_lines(1, "पता:", "नाम / Name:", "सी/ओ सैंपल, प्लॉट नं-679, पटना, बिहार - 801105",
+                         "Address:", address, "Bihar - 801105"),
+        ], "aadhaar")
+        self.assertEqual(parsed["address"], address)
+        self.assertEqual(parsed["full_name"], "SAMPLE PERSON")
+
+    def test_missing_address_label_does_not_invent_an_address(self):
+        parsed = parse_lines(lines("INCOME TAX DEPARTMENT", "SAMPLE PERSON", "ABCDE1234F", "01/01/1990"), "pan")
+        self.assertIsNone(parsed["address"])
+
     def test_vid_is_not_an_aadhaar_number(self):
         parsed = parse_lines(lines("AADHAAR", "SAMPLE PERSON", "YoB: 1990", "XXXX XXXX 1234", "VID : 2345 6789 1234 5678"), "aadhaar")
         self.assertEqual(parsed["document_number"], "XXXXXXXX1234")
@@ -24,7 +42,8 @@ class ParserTests(unittest.TestCase):
         parsed = parse_lines(lines("SYNTHETIC PAN TEST", "Name: SAMPLE TEST", "Father's Name: DEMO TEST", "DOB: 15/04/1990", "AAAPT1234Z"), "pan")
         self.assertEqual(parsed["full_name"], "SAMPLE TEST")
         self.assertNotIn("father_name", parsed)
-        self.assertNotIn("address", parsed)
+        # PAN cards print no address; the key stays empty instead of guessing one.
+        self.assertIsNone(parsed["address"])
         self.assertEqual(parsed["date_of_birth"], "1990-04-15")
         self.assertTrue(parsed["is_test_document"])
 

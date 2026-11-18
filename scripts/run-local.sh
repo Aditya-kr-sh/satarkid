@@ -9,7 +9,12 @@ if [ "$#" -gt 0 ]; then shift; fi
 case "$SERVICE" in
   ml)
     cd "$REPO_DIR/backend/ml-services"
-    exec .venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000 "$@"
+    # The virtualenv lays out its interpreter differently on POSIX and Windows.
+    if [ -x .venv/bin/python ]; then PYTHON=.venv/bin/python
+    elif [ -x .venv/Scripts/python.exe ]; then PYTHON=.venv/Scripts/python.exe
+    else PYTHON=python3
+    fi
+    exec "$PYTHON" -m uvicorn app.main:app --host 127.0.0.1 --port 8000 "$@"
     ;;
   backend)
     cd "$REPO_DIR/backend/express-app"

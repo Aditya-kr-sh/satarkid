@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 const fields = [["fullName", "Full name", "text"], ["documentNumber", "Document number", "text"],
   ["dob", "Date of birth (leave blank if only year known)", "date"], ["yearOfBirth", "Year of birth", "text"],
   ["gender", "Gender (if printed)", "text"]];
@@ -8,7 +10,7 @@ export default function IndianInfoStep({ documentType, formData, formErrors, onC
       <p className="font-semibold">Local OCR: {ocrStatus || "unavailable"}</p>
       <p>{ocrMessage || "Enter readable fields manually or leave them blank."}</p>
       <p className="mt-2">Document face: {documentFaceUrl ? "extracted independently of OCR" : "not available for comparison"}.</p>
-      {documentFaceUrl && <img src={documentFaceUrl} alt="Extracted document face" className="mt-3 h-24 rounded-lg object-contain" />}
+      {documentFaceUrl && <Image unoptimized width={320} height={320} src={documentFaceUrl} alt="Extracted document face" className="mt-3 h-24 w-auto rounded-lg object-contain" />}
     </div>
     <p className="text-sm text-slate-600">Correct the extracted text using your document. Leave unprinted or unreadable fields blank; you can continue to face comparison. Manually entered details are not verified against the document. A birth year does not require a full date.{documentType === "Aadhaar" && " Aadhaar does not establish nationality."}</p>
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
